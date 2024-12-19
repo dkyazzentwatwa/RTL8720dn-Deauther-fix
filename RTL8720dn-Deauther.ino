@@ -22,7 +22,7 @@ typedef struct {
   uint8_t channel;
 } WiFiScanResult;
 
-char *ssid = "RTL8720dn-Deauther";
+char *ssid = "RTL8720dn-Test";
 char *pass = "0123456789";
 
 int current_channel = 1;
@@ -32,7 +32,7 @@ WiFiServer server(80);
 uint8_t deauth_bssid[6];
 uint16_t deauth_reason = 2;
 
-#define FRAMES_PER_DEAUTH 5
+#define FRAMES_PER_DEAUTH 10
 
 rtw_result_t scanResultHandler(rtw_scan_handler_result_t *scan_result) {
   rtw_scan_result_t *record;
@@ -72,46 +72,46 @@ String parseRequest(String request) {
 }
 
 std::vector<std::pair<String, String>> parsePost(String &request) {
-    std::vector<std::pair<String, String>> post_params;
+  std::vector<std::pair<String, String>> post_params;
 
-    // Find the start of the body
-    int body_start = request.indexOf("\r\n\r\n");
-    if (body_start == -1) {
-        return post_params; // Return an empty vector if no body found
-    }
-    body_start += 4;
+  // Find the start of the body
+  int body_start = request.indexOf("\r\n\r\n");
+  if (body_start == -1) {
+    return post_params;  // Return an empty vector if no body found
+  }
+  body_start += 4;
 
-    // Extract the POST data
-    String post_data = request.substring(body_start);
+  // Extract the POST data
+  String post_data = request.substring(body_start);
 
-    int start = 0;
-    int end = post_data.indexOf('&', start);
+  int start = 0;
+  int end = post_data.indexOf('&', start);
 
-    // Loop through the key-value pairs
-    while (end != -1) {
-        String key_value_pair = post_data.substring(start, end);
-        int delimiter_position = key_value_pair.indexOf('=');
-
-        if (delimiter_position != -1) {
-            String key = key_value_pair.substring(0, delimiter_position);
-            String value = key_value_pair.substring(delimiter_position + 1);
-            post_params.push_back({key, value}); // Add the key-value pair to the vector
-        }
-
-        start = end + 1;
-        end = post_data.indexOf('&', start);
-    }
-
-    // Handle the last key-value pair
-    String key_value_pair = post_data.substring(start);
+  // Loop through the key-value pairs
+  while (end != -1) {
+    String key_value_pair = post_data.substring(start, end);
     int delimiter_position = key_value_pair.indexOf('=');
+
     if (delimiter_position != -1) {
-        String key = key_value_pair.substring(0, delimiter_position);
-        String value = key_value_pair.substring(delimiter_position + 1);
-        post_params.push_back({key, value});
+      String key = key_value_pair.substring(0, delimiter_position);
+      String value = key_value_pair.substring(delimiter_position + 1);
+      post_params.push_back({ key, value });  // Add the key-value pair to the vector
     }
 
-    return post_params;
+    start = end + 1;
+    end = post_data.indexOf('&', start);
+  }
+
+  // Handle the last key-value pair
+  String key_value_pair = post_data.substring(start);
+  int delimiter_position = key_value_pair.indexOf('=');
+  if (delimiter_position != -1) {
+    String key = key_value_pair.substring(0, delimiter_position);
+    String value = key_value_pair.substring(delimiter_position + 1);
+    post_params.push_back({ key, value });
+  }
+
+  return post_params;
 }
 
 String makeResponse(int code, String content_type) {
@@ -272,6 +272,9 @@ void handle404(WiFiClient &client) {
 }
 
 void setup() {
+  Serial.begin(115200);
+  delay(2000);
+  Serial.println("Serial started");
   pinMode(LED_R, OUTPUT);
   pinMode(LED_G, OUTPUT);
   pinMode(LED_B, OUTPUT);
@@ -295,12 +298,14 @@ void setup() {
 #endif
 
   server.begin();
+  Serial.println("Client up");
 
   digitalWrite(LED_R, HIGH);
 }
 
 void loop() {
   WiFiClient client = server.available();
+
   if (client.connected()) {
     digitalWrite(LED_G, HIGH);
     String request;
@@ -337,19 +342,20 @@ void loop() {
     client.stop();
     digitalWrite(LED_G, LOW);
   }
-  
+
   uint32_t current_num = 0;
   while (deauth_wifis.size() > 0) {
     memcpy(deauth_bssid, scan_results[current_num].bssid, 6);
     wext_set_channel(WLAN0_NAME, scan_results[current_num].channel);
     current_num++;
     if (current_num >= deauth_wifis.size()) current_num = 0;
-    digitalWrite(LED_B, HIGH);
+    //digitalWrite(LED_B, HIGH);
     for (int i = 0; i < FRAMES_PER_DEAUTH; i++) {
       wifi_tx_deauth_frame(deauth_bssid, (void *)"\xFF\xFF\xFF\xFF\xFF\xFF", deauth_reason);
-      delay(5);
+      //delay(5);
+      delayMicroseconds(5000);
     }
-    digitalWrite(LED_B, LOW);
+    //digitalWrite(LED_B, LOW);
     delay(50);
   }
 }
